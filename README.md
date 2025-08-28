@@ -25,8 +25,8 @@ dart run bin/dash_commit_counts.dart --members github_ids.lst --output 2025-08-2
 
 ### Notes
 
-GitHub has been making changes to how it enforces rate limit. This program is not
-100% resliant to it. Authenticated access is limited to 5000 API calls per hour.
+GitHub has been making changes to how it enforces rate limits. This program is not
+100% resilient to it. Authenticated access is limited to 5000 API calls per hour.
 The program tries to stay under that, which causes it to run quite slowly.
 
 It's probably possible to get it to make fewer API calls if you don't care about the
