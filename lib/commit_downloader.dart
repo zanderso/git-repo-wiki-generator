@@ -21,9 +21,9 @@ class CommitDownloader {
     this.verbose = false,
     void Function(String)? log,
     Future<void> Function(Duration)? delay,
-  })  : service = service ?? g.RepositoriesService(github),
-        log = log ?? print,
-        delay = delay ?? Future.delayed;
+  }) : service = service ?? g.RepositoriesService(github),
+       log = log ?? print,
+       delay = delay ?? Future.delayed;
 
   /// Do not exceed 5000 requests in an hour.
   Future<void> pauseForRateLimit([int? remainingRequests]) async {
@@ -140,7 +140,10 @@ class CommitDownloader {
     }
 
     final List<g.RepositoryCommit> fullCommits = [];
-    final int commitCount = partialCommits.values.fold(0, (c, l) => c + l.length);
+    final int commitCount = partialCommits.values.fold(
+      0,
+      (c, l) => c + l.length,
+    );
     if (verbose) {
       log('[VERBOSE] Downloading full data for $commitCount commits');
     }

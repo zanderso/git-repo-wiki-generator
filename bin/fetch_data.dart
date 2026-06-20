@@ -9,7 +9,6 @@ import 'package:args/args.dart';
 import 'package:github/github.dart' as g;
 import 'package:git_repo_wiki_generator/config.dart';
 import 'package:git_repo_wiki_generator/json_to_markdown.dart';
-import 'package:git_repo_wiki_generator/utils.dart';
 import 'package:git_repo_wiki_generator/compile_wiki.dart';
 import 'package:git_repo_wiki_generator/commit_downloader.dart';
 
@@ -132,7 +131,8 @@ void main(List<String> arguments) async {
       github: github,
       verbose: _verbose,
     );
-    final List<g.RepositoryCommit> commits = await downloader.downloadCommitData(config);
+    final List<g.RepositoryCommit> commits = await downloader
+        .downloadCommitData(config);
 
     if (_verbose) {
       print('[VERBOSE] Done downloading commit data.');
