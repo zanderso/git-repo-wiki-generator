@@ -243,7 +243,9 @@ B commit
     late io.Directory wikiDir;
 
     setUp(() {
-      tempDir = io.Directory.systemTemp.createTempSync('compile_wiki_cli_test_');
+      tempDir = io.Directory.systemTemp.createTempSync(
+        'compile_wiki_cli_test_',
+      );
       rawCommitsDir = io.Directory('${tempDir.path}/raw_commits')..createSync();
       wikiDir = io.Directory('${tempDir.path}/wiki');
     });

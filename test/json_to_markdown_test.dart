@@ -104,7 +104,9 @@ void main() {
     late io.Directory tempDir;
 
     setUp(() {
-      tempDir = io.Directory.systemTemp.createTempSync('json_to_markdown_cli_test_');
+      tempDir = io.Directory.systemTemp.createTempSync(
+        'json_to_markdown_cli_test_',
+      );
     });
 
     tearDown(() {
@@ -115,10 +117,14 @@ void main() {
 
     test('CLI converts multiple jsonl files successfully', () async {
       final jsonlFile1 = io.File('${tempDir.path}/cli_input1.jsonl');
-      jsonlFile1.writeAsStringSync('{"sha": "hashA", "commit": {"message": "CLI 1"}}\n');
+      jsonlFile1.writeAsStringSync(
+        '{"sha": "hashA", "commit": {"message": "CLI 1"}}\n',
+      );
 
       final jsonlFile2 = io.File('${tempDir.path}/cli_input2.jsonl');
-      jsonlFile2.writeAsStringSync('{"sha": "hashB", "commit": {"message": "CLI 2"}}\n');
+      jsonlFile2.writeAsStringSync(
+        '{"sha": "hashB", "commit": {"message": "CLI 2"}}\n',
+      );
 
       final outputDir = io.Directory('${tempDir.path}/cli_output');
 
