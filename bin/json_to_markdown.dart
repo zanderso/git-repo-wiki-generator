@@ -4,7 +4,7 @@
 
 import 'dart:io' as io;
 import 'package:args/args.dart';
-import 'package:repo_analysis/json_to_markdown.dart';
+import 'package:git_repo_wiki_generator/json_to_markdown.dart';
 
 void main(List<String> arguments) async {
   final parser = ArgParser()

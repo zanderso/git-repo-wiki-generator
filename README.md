@@ -9,10 +9,10 @@ This tool extracts commit data from GitHub repositories, converts it into beauti
 There are two primary ways to run and consume this package depending on your automation needs:
 
 ### 1. The All-in-One Automated Pipeline
-You can run the entire sequence (fetching, raw translation, and wiki compilation) in a single-shot command using `bin/dash_commit_counts.dart`.
+You can run the entire sequence (fetching, raw translation, and wiki compilation) in a single-shot command using `bin/fetch_data.dart`.
 
 ```bash
-dart bin/dash_commit_counts.dart -c <config-json> -o <output-jsonl> -d <raw-commits-dir> -w <wiki-dir>
+dart bin/fetch_data.dart -c <config-json> -o <output-jsonl> -d <raw-commits-dir> -w <wiki-dir>
 ```
 
 - `-c, --config`: Path to your JSON configuration file defining the repositories, date ranges, bot filters, and GitHub authentication token.
@@ -28,7 +28,7 @@ For advanced workflows (such as combining commit datasets from multiple separate
 #### Step 1: Download Commits to JSONLines
 Fetch and dump raw commit records from GitHub into a `.jsonl` database:
 ```bash
-dart bin/dash_commit_counts.dart -c config.json -o output.jsonl
+dart bin/fetch_data.dart -c config.json -o output.jsonl
 ```
 
 #### Step 2: Convert JSONL Files to Markdown
@@ -43,6 +43,42 @@ Aggregate and compile the converted commit markdowns into structured, cross-link
 ```bash
 dart bin/compile_wiki.dart -i mdout/raw_commits -o mdout/wiki
 ```
+
+---
+
+## ⚙️ Configuration File Format
+
+The `bin/fetch_data.dart` script requires a JSON configuration file (specified via the `-c` or `--config` flag). This file defines the GitHub authentication token, target repositories, date range for fetching commits, and a list of bot accounts to filter out.
+
+### Example Configuration
+
+Below is an example of a valid configuration file (e.g., `config.json`):
+
+```json
+{
+  "token": "github_pat_11ABQMTPY0dx...",
+  "since": "2026-06-13",
+  "until": "2026-06-19",
+  "repos": [
+    "flutter/cocoon",
+    "flutter/packages"
+  ],
+  "bots": [
+    "dependabot[bot]",
+    "github-actions[bot]"
+  ]
+}
+```
+
+### Configuration Fields
+
+| Field | Type | Required | Description |
+| :--- | :--- | :---: | :--- |
+| `token` | `String` | Yes | Your GitHub Personal Access Token (PAT) used to authenticate API requests and prevent severe rate limiting. Must be non-empty. |
+| `since` | `String` | Yes | A non-empty ISO 8601 formatted date/time string (e.g., `"2026-06-13"` or `"2026-06-13T00:00:00Z"`) indicating the start of the timeframe to fetch commits. |
+| `until` | `String` | Yes | A non-empty ISO 8601 formatted date/time string indicating the end of the timeframe to fetch commits. |
+| `repos` | `List<String>` | Yes | A non-empty list of GitHub repository paths in `"owner/repo"` format (e.g., `"flutter/flutter"`). |
+| `bots` | `List<String>` | Yes | A non-empty list of GitHub user login IDs/bot accounts (e.g., `"dependabot[bot]"`) whose commits should be ignored/filtered out. |
 
 ---
 

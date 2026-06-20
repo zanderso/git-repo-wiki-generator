@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:test/test.dart';
-import 'package:repo_analysis/utils.dart';
+import 'package:git_repo_wiki_generator/utils.dart';
 
 void main() {
   group('callWithRetries', () {

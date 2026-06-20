@@ -1,4 +1,4 @@
-name: repo_analysis
+name: git_repo_wiki_generator
 description: A sample command-line application with basic argument parsing.
 version: 0.0.1
 # repository: https://github.com/my_org/my_repo
