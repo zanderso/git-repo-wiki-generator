@@ -24,7 +24,10 @@ void main() {
       expect(config.since, equals(DateTime.parse('2026-05-21T00:00:00Z')));
       expect(config.until, equals(DateTime.parse('2026-05-27T23:59:59Z')));
       expect(config.repos, equals(['flutter/flutter', 'flutter/engine']));
-      expect(config.bots, equals(['gemini-code-assist[bot]', 'dependabot[bot]']));
+      expect(
+        config.bots,
+        equals(['gemini-code-assist[bot]', 'dependabot[bot]']),
+      );
     });
 
     test('fails if token is missing or not a String', () {
@@ -38,7 +41,8 @@ void main() {
       expect(config1, isNull);
       expect(error1, contains('"token" field must be a non-empty string.'));
 
-      final mapInvalidToken = Map<String, dynamic>.from(mapNoToken)..['token'] = 12345;
+      final mapInvalidToken = Map<String, dynamic>.from(mapNoToken)
+        ..['token'] = 12345;
       final (config2, error2) = Config.fromMap(mapInvalidToken);
       expect(config2, isNull);
       expect(error2, contains('"token" field must be a non-empty string.'));
@@ -56,7 +60,8 @@ void main() {
       expect(config1, isNull);
       expect(error1, contains('"since" field must be a non-empty string.'));
 
-      final mapInvalidSince = Map<String, dynamic>.from(baseMap)..['since'] = 'not-a-date';
+      final mapInvalidSince = Map<String, dynamic>.from(baseMap)
+        ..['since'] = 'not-a-date';
       final (config2, error2) = Config.fromMap(mapInvalidSince);
       expect(config2, isNull);
       expect(error2, contains('is not a valid date string'));
@@ -74,34 +79,49 @@ void main() {
       expect(config1, isNull);
       expect(error1, contains('"until" field must be a non-empty string.'));
 
-      final mapInvalidUntil = Map<String, dynamic>.from(baseMap)..['until'] = 'not-a-date';
+      final mapInvalidUntil = Map<String, dynamic>.from(baseMap)
+        ..['until'] = 'not-a-date';
       final (config2, error2) = Config.fromMap(mapInvalidUntil);
       expect(config2, isNull);
       expect(error2, contains('is not a valid date string'));
     });
 
-    test('fails if repos field is missing, empty, or not a list of strings', () {
-      final baseMap = {
-        'token': 'abc',
-        'since': '2026-05-21T00:00:00Z',
-        'until': '2026-05-27T23:59:59Z',
-        'bots': ['bot'],
-      };
+    test(
+      'fails if repos field is missing, empty, or not a list of strings',
+      () {
+        final baseMap = {
+          'token': 'abc',
+          'since': '2026-05-21T00:00:00Z',
+          'until': '2026-05-27T23:59:59Z',
+          'bots': ['bot'],
+        };
 
-      final (config1, error1) = Config.fromMap(baseMap);
-      expect(config1, isNull);
-      expect(error1, contains('"repos" field must be a non-empty list of strings.'));
+        final (config1, error1) = Config.fromMap(baseMap);
+        expect(config1, isNull);
+        expect(
+          error1,
+          contains('"repos" field must be a non-empty list of strings.'),
+        );
 
-      final mapEmptyRepos = Map<String, dynamic>.from(baseMap)..['repos'] = [];
-      final (config2, error2) = Config.fromMap(mapEmptyRepos);
-      expect(config2, isNull);
-      expect(error2, contains('"repos" field must be a non-empty list of strings.'));
+        final mapEmptyRepos = Map<String, dynamic>.from(baseMap)
+          ..['repos'] = [];
+        final (config2, error2) = Config.fromMap(mapEmptyRepos);
+        expect(config2, isNull);
+        expect(
+          error2,
+          contains('"repos" field must be a non-empty list of strings.'),
+        );
 
-      final mapInvalidReposType = Map<String, dynamic>.from(baseMap)..['repos'] = [123, 456];
-      final (config3, error3) = Config.fromMap(mapInvalidReposType);
-      expect(config3, isNull);
-      expect(error3, contains('"repos" field must be a non-empty list of strings.'));
-    });
+        final mapInvalidReposType = Map<String, dynamic>.from(baseMap)
+          ..['repos'] = [123, 456];
+        final (config3, error3) = Config.fromMap(mapInvalidReposType);
+        expect(config3, isNull);
+        expect(
+          error3,
+          contains('"repos" field must be a non-empty list of strings.'),
+        );
+      },
+    );
 
     test('fails if bots field is missing, empty, or not a list of strings', () {
       final baseMap = {
@@ -113,17 +133,27 @@ void main() {
 
       final (config1, error1) = Config.fromMap(baseMap);
       expect(config1, isNull);
-      expect(error1, contains('"bots" field must be a non-empty list of strings.'));
+      expect(
+        error1,
+        contains('"bots" field must be a non-empty list of strings.'),
+      );
 
       final mapEmptyBots = Map<String, dynamic>.from(baseMap)..['bots'] = [];
       final (config2, error2) = Config.fromMap(mapEmptyBots);
       expect(config2, isNull);
-      expect(error2, contains('"bots" field must be a non-empty list of strings.'));
+      expect(
+        error2,
+        contains('"bots" field must be a non-empty list of strings.'),
+      );
 
-      final mapInvalidBotsType = Map<String, dynamic>.from(baseMap)..['bots'] = [123, 456];
+      final mapInvalidBotsType = Map<String, dynamic>.from(baseMap)
+        ..['bots'] = [123, 456];
       final (config3, error3) = Config.fromMap(mapInvalidBotsType);
       expect(config3, isNull);
-      expect(error3, contains('"bots" field must be a non-empty list of strings.'));
+      expect(
+        error3,
+        contains('"bots" field must be a non-empty list of strings.'),
+      );
     });
   });
 
@@ -189,7 +219,9 @@ void main() {
     });
 
     test('fails when file does not exist', () {
-      final (config, error) = Config.fromFile('${tempDir.path}/does_not_exist.json');
+      final (config, error) = Config.fromFile(
+        '${tempDir.path}/does_not_exist.json',
+      );
       expect(config, isNull);
       expect(error, contains('Failed to read file'));
     });

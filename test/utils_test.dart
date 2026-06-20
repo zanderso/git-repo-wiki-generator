@@ -49,11 +49,13 @@ void main() {
 
       await expectLater(
         callFuture,
-        throwsA(isA<FormatException>().having(
-          (e) => e.message,
-          'message',
-          contains('attempt 4'),
-        )),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('attempt 4'),
+          ),
+        ),
       );
       expect(attempts, equals(4));
     });

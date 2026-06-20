@@ -8,9 +8,9 @@ import 'dart:io' as io;
 import 'package:args/args.dart';
 import 'package:github/github.dart' as g;
 import 'package:repo_analysis/config.dart';
+import 'package:repo_analysis/json_to_markdown.dart';
 import 'package:repo_analysis/utils.dart';
-
-
+import 'package:repo_analysis/compile_wiki.dart';
 
 // Usage:
 //
@@ -57,6 +57,22 @@ ArgParser buildParser() {
       abbr: 'o',
       help: 'Where to write raw commit json data',
       mandatory: true,
+    )
+    ..addOption(
+      'output-dir',
+      abbr: 'd',
+      help:
+          'The subdirectory of the working directory in which a markdown '
+          'doc for each commit will be written. Created if not present.',
+      mandatory: false,
+    )
+    ..addOption(
+      'wiki-dir',
+      abbr: 'w',
+      help:
+          'The subdirectory of the working directory in which compiled wiki '
+          'pages will be written. Created if not present.',
+      mandatory: false,
     );
 }
 
@@ -101,6 +117,13 @@ void main(List<String> arguments) async {
       print(config);
     }
 
+    if (results.wasParsed('wiki-dir') && !results.wasParsed('output-dir')) {
+      print('Error: --output-dir is required when using --wiki-dir.');
+      printUsage(argParser);
+      io.exitCode = 1;
+      return;
+    }
+
     final List<g.RepositoryCommit> commits = await downloadCommitData(config);
 
     if (_verbose) {
@@ -115,6 +138,30 @@ void main(List<String> arguments) async {
 
     final rawOutputJson = io.File(results.option('output') as String);
     writeCommits(commits, rawOutputJson);
+
+    if (results.wasParsed('output-dir')) {
+      final String outputDirName = results.option('output-dir') as String;
+      final io.Directory outputDir = io.Directory(outputDirName);
+      if (_verbose) {
+        print(
+          '[VERBOSE] Converting JSONL to Markdown in directory: $outputDirName',
+        );
+      }
+      await convertJsonlToMarkdown(rawOutputJson, outputDir);
+    }
+
+    if (results.wasParsed('wiki-dir')) {
+      final String wikiDirName = results.option('wiki-dir') as String;
+      final io.Directory wikiDir = io.Directory(wikiDirName);
+      final String outputDirName = results.option('output-dir') as String;
+      final io.Directory outputDir = io.Directory(outputDirName);
+      if (_verbose) {
+        print(
+          '[VERBOSE] Compiling Wiki into directory: $wikiDirName from $outputDirName',
+        );
+      }
+      compileWiki(outputDir, wikiDir);
+    }
   } on FormatException catch (e) {
     // Print usage information if an invalid argument was provided.
     print(e.message);
@@ -137,7 +184,6 @@ void writeCommits(List<g.RepositoryCommit> commits, io.File rawOutputJson) {
     sink.close();
   }
 }
-
 
 // Do not exceed 5000 requests in an hour.
 Future<void> pauseForRateLimit(

@@ -1,38 +1,67 @@
-### First
+# Repo Commit Tracker & Wiki Generator
 
-Put your GitHub API Key in `bin/dash_commit_counts.dart` in the global
-`githubApiKey` at the top of the file.
+This tool extracts commit data from GitHub repositories, converts it into beautiful, standardized raw commit markdown files, and compiles them into a highly structured project history Wiki (complete with developer profiles, project timelines, and component focus areas).
 
-### Flutter example:
+---
+
+## 🚀 Usage Workflows
+
+There are two primary ways to run and consume this package depending on your automation needs:
+
+### 1. The All-in-One Automated Pipeline
+You can run the entire sequence (fetching, raw translation, and wiki compilation) in a single-shot command using `bin/dash_commit_counts.dart`.
+
+```bash
+dart bin/dash_commit_counts.dart -c <config-json> -o <output-jsonl> -d <raw-commits-dir> -w <wiki-dir>
 ```
-dart run bin/dash_commit_counts.dart --members github_ids.lst --output 2025-08-27-flutter-summary.csv --raw-output 2025-08-27-flutter-raw.json
+
+- `-c, --config`: Path to your JSON configuration file defining the repositories, date ranges, bot filters, and GitHub authentication token.
+- `-o, --output`: Where to write the accumulated raw commit JSONLines (`.jsonl`) data.
+- `-d, --output-dir`: The directory where individual commit markdown files will be written.
+- `-w, --wiki-dir`: The destination directory where the compiled wiki files and master index will be written.
+
+---
+
+### 2. The Step-by-Step Manual Pipeline
+For advanced workflows (such as combining commit datasets from multiple separate runs, offline curation, or custom pipeline steps), you can execute each phase independently using separate command-line utilities.
+
+#### Step 1: Download Commits to JSONLines
+Fetch and dump raw commit records from GitHub into a `.jsonl` database:
+```bash
+dart bin/dash_commit_counts.dart -c config.json -o output.jsonl
 ```
 
-### Dart example:
+#### Step 2: Convert JSONL Files to Markdown
+Translate one or more `.jsonl` files (including separate invocations from different time ranges or repositories) into individual commit markdown logs under a target directory:
+```bash
+dart bin/json_to_markdown.dart -d mdout/raw_commits output1.jsonl output2.jsonl
 ```
-dart run bin/dash_commit_counts.dart --members github_ids.lst --output 2025-08-27-dart-summary.csv --raw-output 2025-08-27-dart-raw.json --dart
+*(Note: You can pass any number of input `.jsonl` files to this program.)*
+
+#### Step 3: Compile the Wiki
+Aggregate and compile the converted commit markdowns into structured, cross-linked profiles, timelines, and a master index:
+```bash
+dart bin/compile_wiki.dart -i mdout/raw_commits -o mdout/wiki
 ```
 
-### Inputs / outputs
+---
 
-- `github_ids.lst` is an input file. It is a newline separated list of "members" of the project,
-  used to distinguish commits between "members" and "non-members".
-- `2025-08-27-flutter-summary.csv` is an output file. It is a csv file formatted as:
-  `github_id, number of commits, lines added, lines deleted`. There is an empty entry
-  (`,,,`) dilineating the "member" data from the "non-member" data that follows it.
-- `2025-08-27-flutter-raw.json` is an output file. It is the raw data about commits
-  from the GitHub API calls, formatted as json.
+## 🤖 Querying Wiki Data with Antigravity
 
-### Notes
+Once your project history wiki is generated under your output directory (e.g., `mdout/wiki`), you can utilize **Antigravity** directly to query and write rich analyses about your repository data. 
 
-GitHub has been making changes to how it enforces rate limits. This program is not
-100% resilient to it. Authenticated access is limited to 5000 API calls per hour.
-The program tries to stay under that, which causes it to run quite slowly.
+Because Antigravity possesses deep file-reading and search tools (`grep_search`, `view_file`, etc.), you can simply ask it natural language questions in your chat panel to analyze the wiki.
 
-It's probably possible to get it to make fewer API calls if you don't care about the
-lines added/deleted in each commit, and only care about the number of commits.
-You'd do that by changing `downloadCommitData` to short-circuit fetching
-the `fullCommit`, and just use the `partialCommit` instead.
+### Sample Prompts for Antigravity:
 
-After running this program, the usual next step is to take data from the summary csv
-and load it into a spreadsheet for further analysis.
+* **To Aggregate Stats**:
+  > *"Antigravity, please search through the markdown profiles under `mdout/wiki` and find the top three developers with the highest additions and deletions. Present the results in a markdown table."*
+
+* **To Track Component Trends**:
+  > *"Analyze the codebase component pages in `mdout/wiki/Feature_*.md` and identify which components received the most tooling-related commits during June 2026."*
+
+* **To Generate Custom Analysis Scripts**:
+  > *"Write a custom Dart script to scan all files under `mdout/wiki/Timeline_*.md` and print a CSV showing the number of unique contributors active in each month."*
+
+* **To Summarize Contributions**:
+  > *"Review the profile of developer `Alice` in `mdout/wiki/Author_Alice.md` and summarize her primary contributions to the Engine component, highlighting her three highest-impact commits."*

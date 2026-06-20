@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:convert' as convert;
+import 'dart:io' as io;
+
 bool isNothing(dynamic d) {
   return switch (d) {
     num _ => false,
@@ -34,67 +37,66 @@ void jsonObjectToMarkdown(
   List<String> includeFilter = const [],
   List<String> excludeFilter = const [],
 }) {
- for (final String key in jsonData.keys) {
-  if (isNothing(jsonData[key])) {
-    continue;
+  for (final String key in jsonData.keys) {
+    if (isNothing(jsonData[key])) {
+      continue;
+    }
+    if (includeFilter.isNotEmpty &&
+        !includeFilter.any((String f) => pathMatch(f, '$path.$key'))) {
+      continue;
+    }
+    if (excludeFilter.isNotEmpty &&
+        excludeFilter.any((String f) => pathMatch(f, '$path.$key'))) {
+      continue;
+    }
+    final String pounds = '#' * depth;
+    output.writeln('$pounds $key');
+    output.writeln();
+    switch (jsonData[key]) {
+      case num x:
+        output.writeln(x.toString());
+      case String s:
+        // Treat all strings as code.
+        output.writeln('```');
+        output.writeln(s);
+        output.writeln('```');
+      case bool b:
+        output.writeln(b.toString());
+      case Null n:
+        output.writeln(n.toString());
+      case List l:
+        if (l.isEmpty) {
+          break;
+        }
+        switch (l.first) {
+          case Map<String, dynamic> _:
+            for (int i = 0; i < l.length; i++) {
+              jsonObjectToMarkdown(
+                {key: l[i]},
+                output,
+                depth: depth + 1,
+                path: '$path.$key',
+                includeFilter: includeFilter,
+                excludeFilter: excludeFilter,
+              );
+            }
+          default:
+            jsonListToMarkdown(l, output);
+        }
+      case Map<String, dynamic> j:
+        jsonObjectToMarkdown(
+          j,
+          output,
+          depth: depth + 1,
+          path: '$path.$key',
+          includeFilter: includeFilter,
+          excludeFilter: excludeFilter,
+        );
+      default:
+        output.writeln(jsonData[key]);
+    }
+    output.writeln();
   }
-  if (includeFilter.isNotEmpty &&
-      !includeFilter.any((String f) => pathMatch(f, '$path.$key'))) {
-    continue;
-  }
-  if (excludeFilter.isNotEmpty &&
-      excludeFilter.any((String f) => pathMatch(f, '$path.$key'))) {
-    continue;
-  }
-  final String pounds = '#'*depth;
-  output.writeln('$pounds $key');
-  output.writeln();
-  switch (jsonData[key]) {
-    case num x:
-      output.writeln(x.toString());
-    case String s:
-      // Treat all strings as code.
-      output.writeln('```');
-      output.writeln(s);
-      output.writeln('```');
-    case bool b:
-      output.writeln(b.toString());
-    case Null n:
-      output.writeln(n.toString());
-    case List l:
-      if (l.isEmpty) {
-        break;
-      }
-      switch (l.first) {
-        case Map<String, dynamic> _:
-          for (int i = 0; i < l.length; i++) {
-            jsonObjectToMarkdown(
-              {key: l[i]},
-              output,
-              depth:
-              depth+1,
-              path: '$path.$key',
-              includeFilter: includeFilter,
-              excludeFilter: excludeFilter,
-            );
-          }
-        default:
-          jsonListToMarkdown(l, output);
-      }
-    case Map<String, dynamic> j:
-      jsonObjectToMarkdown(
-        j,
-        output,
-        depth: depth+1,
-        path: '$path.$key',
-        includeFilter: includeFilter,
-        excludeFilter: excludeFilter,
-      );
-    default:
-      output.writeln(jsonData[key]);
-  }
-  output.writeln();
- }
 }
 
 void jsonListToMarkdown(
@@ -105,10 +107,52 @@ void jsonListToMarkdown(
   for (final e in jsonData) {
     switch (e) {
       case List<dynamic> l:
-        jsonListToMarkdown(l, output, depth: depth+1);
+        jsonListToMarkdown(l, output, depth: depth + 1);
       default:
-        final String indent = ' '*depth;
+        final String indent = ' ' * depth;
         output.writeln('$indent- ${e.toString()}');
     }
+  }
+}
+
+Future<void> convertJsonlToMarkdown(
+  io.File jsonlFile,
+  io.Directory outputDir, {
+  List<String> includeFilter = const [
+    '.commit.author',
+    '.commit.commiter.date',
+    '.commit.message',
+    '.author.login',
+    '.stats',
+    '.files.files.filename',
+    '.files.files.patch',
+  ],
+}) async {
+  if (!outputDir.existsSync()) {
+    outputDir.createSync(recursive: true);
+  }
+
+  final Stream<String> lines = jsonlFile
+      .openRead()
+      .transform(convert.utf8.decoder)
+      .transform(const convert.LineSplitter());
+
+  int i = 0;
+  await for (final String line in lines) {
+    if (line.trim().isEmpty) {
+      continue;
+    }
+    final Map<String, dynamic> jsonObject = convert.json.decode(line);
+    final String mdPrefix;
+    if (jsonObject.containsKey('sha')) {
+      mdPrefix = jsonObject['sha'] as String;
+    } else {
+      mdPrefix = i.toString();
+    }
+    final StringBuffer mdbuf = StringBuffer();
+    final io.File mdFile = io.File('${outputDir.path}/$mdPrefix.md');
+    jsonObjectToMarkdown(jsonObject, mdbuf, includeFilter: includeFilter);
+    mdFile.writeAsStringSync(mdbuf.toString());
+    i++;
   }
 }
