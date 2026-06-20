@@ -27,8 +27,14 @@ class FakeGitHub extends Fake implements g.GitHub {
 }
 
 class FakeRepositoriesService extends Fake implements g.RepositoriesService {
-  final List<g.RepositoryCommit> Function(g.RepositorySlug slug, DateTime since, DateTime until) onListCommits;
-  final g.RepositoryCommit Function(g.RepositorySlug slug, String sha) onGetCommit;
+  final List<g.RepositoryCommit> Function(
+    g.RepositorySlug slug,
+    DateTime since,
+    DateTime until,
+  )
+  onListCommits;
+  final g.RepositoryCommit Function(g.RepositorySlug slug, String sha)
+  onGetCommit;
   final g.GitHub _github;
 
   FakeRepositoriesService({
@@ -55,7 +61,10 @@ class FakeRepositoriesService extends Fake implements g.RepositoriesService {
   }
 
   @override
-  Future<g.RepositoryCommit> getCommit(g.RepositorySlug slug, String sha) async {
+  Future<g.RepositoryCommit> getCommit(
+    g.RepositorySlug slug,
+    String sha,
+  ) async {
     return onGetCommit(slug, sha);
   }
 }
@@ -91,16 +100,24 @@ void main() {
           'author': {'login': 'dev_user'},
           'commit': {
             'message': 'regular commit',
-            'author': {'name': 'Dev User', 'email': 'dev@example.com', 'date': '2026-06-15T10:00:00Z'},
-          }
+            'author': {
+              'name': 'Dev User',
+              'email': 'dev@example.com',
+              'date': '2026-06-15T10:00:00Z',
+            },
+          },
         }),
         g.RepositoryCommit.fromJson({
           'sha': 'sha_bot',
           'author': {'login': 'dependabot[bot]'},
           'commit': {
             'message': 'dependency bump',
-            'author': {'name': 'Dependabot', 'email': 'bot@example.com', 'date': '2026-06-16T10:00:00Z'},
-          }
+            'author': {
+              'name': 'Dependabot',
+              'email': 'bot@example.com',
+              'date': '2026-06-16T10:00:00Z',
+            },
+          },
         }),
       ];
 
@@ -143,7 +160,10 @@ void main() {
       expect(result[0].author?.login, equals('dev_user'));
 
       // Check log output
-      expect(logs, anyElement(contains('Downloading commit data for "owner/repo"')));
+      expect(
+        logs,
+        anyElement(contains('Downloading commit data for "owner/repo"')),
+      );
       expect(logs, anyElement(contains('Got all commit data')));
     });
 
@@ -178,7 +198,14 @@ void main() {
       final result = await downloader.downloadCommitData(config!);
 
       expect(result, isEmpty);
-      expect(logs, anyElement(contains('Failed to get commits for owner/repo: Error: Exception: API error')));
+      expect(
+        logs,
+        anyElement(
+          contains(
+            'Failed to get commits for owner/repo: Error: Exception: API error',
+          ),
+        ),
+      );
     });
 
     test('handles rate limit pausing correctly', () async {
