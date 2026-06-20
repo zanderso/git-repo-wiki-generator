@@ -4,7 +4,7 @@
 
 import 'dart:io' as io;
 import 'package:args/args.dart';
-import 'package:repo_analysis/compile_wiki.dart';
+import 'package:git_repo_wiki_generator/compile_wiki.dart';
 
 void main(List<String> arguments) {
   final parser = ArgParser()

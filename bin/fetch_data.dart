@@ -7,10 +7,10 @@ import 'dart:io' as io;
 
 import 'package:args/args.dart';
 import 'package:github/github.dart' as g;
-import 'package:repo_analysis/config.dart';
-import 'package:repo_analysis/json_to_markdown.dart';
-import 'package:repo_analysis/utils.dart';
-import 'package:repo_analysis/compile_wiki.dart';
+import 'package:git_repo_wiki_generator/config.dart';
+import 'package:git_repo_wiki_generator/json_to_markdown.dart';
+import 'package:git_repo_wiki_generator/utils.dart';
+import 'package:git_repo_wiki_generator/compile_wiki.dart';
 
 // Usage:
 //
