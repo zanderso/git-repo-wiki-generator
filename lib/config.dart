@@ -101,7 +101,7 @@ class Config {
       if (configData is! Map<String, dynamic>) {
         return (
           null,
-          '$path is not valid json: Root of JSON configuration must be a map.'
+          '$path is not valid json: Root of JSON configuration must be a map.',
         );
       }
       final (config, err) = fromMap(configData);
