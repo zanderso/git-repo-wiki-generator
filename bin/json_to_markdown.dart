@@ -14,6 +14,12 @@ void main(List<String> arguments) async {
       help: 'The directory in which converted markdown files will be written.',
       mandatory: true,
     )
+    ..addFlag(
+      'prs',
+      help:
+          'Indicate that the input jsonl data is for PRs rather than commits.',
+      negatable: false,
+    )
     ..addFlag('help', abbr: 'h', negatable: false, help: 'Show help message');
 
   try {
@@ -43,8 +49,16 @@ void main(List<String> arguments) async {
         io.exitCode = 1;
         return;
       }
-      print('Converting $fileArg to markdown in ${outputDir.path}...');
-      await convertJsonlToMarkdown(file, outputDir);
+      if (results.flag('prs')) {
+        await convertJsonlToMarkdown(
+          file,
+          outputDir,
+          includeFilter: defaultPrFilters,
+          filenameField: '.pull_request.merge_commit_sha',
+        );
+      } else {
+        await convertJsonlToMarkdown(file, outputDir);
+      }
     }
     print('Conversion completed successfully.');
   } on FormatException catch (e) {

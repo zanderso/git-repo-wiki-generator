@@ -11,37 +11,71 @@ There are two primary ways to run and consume this package depending on your aut
 ### 1. The All-in-One Automated Pipeline
 You can run the entire sequence (fetching, raw translation, and wiki compilation) in a single-shot command using `bin/fetch_data.dart`.
 
+To generate a complete wiki with both commits and pull requests:
 ```bash
-dart bin/fetch_data.dart -c <config-json> -o <output-jsonl> -d <raw-commits-dir> -w <wiki-dir>
+dart bin/fetch_data.dart -c <config-json> -o <commit-output-jsonl> -d <raw-commits-dir> --pr-output <prs-output-jsonl> --pr-dir <raw-prs-dir> -w <wiki-dir>
 ```
 
-- `-c, --config`: Path to your JSON configuration file defining the repositories, date ranges, bot filters, and GitHub authentication token.
-- `-o, --output`: Where to write the accumulated raw commit JSONLines (`.jsonl`) data.
-- `-d, --output-dir`: The directory where individual commit markdown files will be written.
+#### Available Flags and Options:
+- `-c, --config`: (Required) Path to your JSON configuration file defining the repositories, date ranges, bot filters, and GitHub authentication token.
+- `-o, --commit-output`: Where to write the accumulated raw commit JSONLines (`.jsonl`) data. (Required if `--output-dir` is specified; at least one of `--commit-output` or `--pr-output` must be parsed)
+- `-d, --output-dir`: The directory where individual commit markdown files will be written. (Required if `--wiki-dir` is specified)
+- `--pr-output`: Where to write the accumulated raw pull request JSONLines (`.jsonl`) data. (At least one of `--commit-output` or `--pr-output` must be parsed)
+- `--pr-dir`: The directory where individual pull request markdown files will be written. (Required if `--pr-output` is specified)
 - `-w, --wiki-dir`: The destination directory where the compiled wiki files and master index will be written.
+- `-v, --verbose`: Show additional logging and command execution outputs during the pipeline.
+- `-h, --help`: Print complete command usage information.
 
 ---
 
 ### 2. The Step-by-Step Manual Pipeline
-For advanced workflows (such as combining commit datasets from multiple separate runs, offline curation, or custom pipeline steps), you can execute each phase independently using separate command-line utilities.
+For advanced workflows (such as combining commit and PR datasets from multiple separate runs, offline curation, or custom pipeline steps), you can execute each phase independently using separate command-line utilities.
 
-#### Step 1: Download Commits to JSONLines
-Fetch and dump raw commit records from GitHub into a `.jsonl` database:
-```bash
-dart bin/fetch_data.dart -c config.json -o output.jsonl
-```
+#### Step 1: Download Data to JSONLines
+Fetch and dump raw data from GitHub into a `.jsonl` database:
+
+* **Download Commits only**:
+  ```bash
+  dart bin/fetch_data.dart -c config.json -o output.jsonl
+  ```
+
+* **Download Pull Requests only**:
+  ```bash
+  dart bin/fetch_data.dart -c config.json --pr-output pr_output.jsonl
+  ```
+
+* **Download Both**:
+  ```bash
+  dart bin/fetch_data.dart -c config.json -o output.jsonl --pr-output pr_output.jsonl
+  ```
 
 #### Step 2: Convert JSONL Files to Markdown
-Translate one or more `.jsonl` files (including separate invocations from different time ranges or repositories) into individual commit markdown logs under a target directory:
-```bash
-dart bin/json_to_markdown.dart -d mdout/raw_commits output1.jsonl output2.jsonl
-```
-*(Note: You can pass any number of input `.jsonl` files to this program.)*
+Translate one or more `.jsonl` files into individual markdown log files under target directories:
+
+* **Convert Commit JSONLines**:
+  ```bash
+  dart bin/json_to_markdown.dart -d mdout/raw_commits output1.jsonl output2.jsonl
+  ```
+
+* **Convert Pull Request JSONLines**:
+  Use the `--prs` flag to indicate that the input is pull request data, which maps files based on merge commit SHAs:
+  ```bash
+  dart bin/json_to_markdown.dart -d mdout/raw_prs --prs pr_output.jsonl
+  ```
 
 #### Step 3: Compile the Wiki
-Aggregate and compile the converted commit markdowns into structured, cross-linked profiles, timelines, and a master index:
-```bash
-dart bin/compile_wiki.dart -i mdout/raw_commits -o mdout/wiki
+Aggregate and compile the converted markdown files into a structured, cross-linked wiki:
+
+* **Compile Wiki with Commits only**:
+  ```bash
+  dart bin/compile_wiki.dart -i mdout/raw_commits -o mdout/wiki
+  ```
+
+* **Compile Wiki with both Commits and Pull Requests**:
+  Provide the `-p` or `--prs-dir` parameter to integrate pull request timelines and reviewer profiles:
+  ```bash
+  dart bin/compile_wiki.dart -i mdout/raw_commits -o mdout/wiki -p mdout/raw_prs
+  ```
 ```
 
 ---

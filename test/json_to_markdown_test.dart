@@ -98,6 +98,37 @@ void main() {
       expect(content, isNot(contains('extra_field')));
       expect(content, isNot(contains('hidden')));
     });
+
+    test(
+      'converts PR JSONL files using merge_commit_sha as filename and filters correctly',
+      () async {
+        final jsonlFile = io.File('${tempDir.path}/input_prs.jsonl');
+        jsonlFile.writeAsStringSync(
+          '{"pull_request": {"title": "PR Title", "body": "PR Description", "merge_commit_sha": "merge_hash_123", "user": {"login": "author_user"}}, "reviews": [{"user": {"login": "reviewer_user"}, "body": "LGTM"}], "comments": [{"user": {"login": "commenter_user"}, "body": "Nice code"}]}\n',
+        );
+
+        final outputDir = io.Directory('${tempDir.path}/output_prs');
+
+        await convertJsonlToMarkdown(
+          jsonlFile,
+          outputDir,
+          includeFilter: defaultPrFilters,
+          filenameField: '.pull_request.merge_commit_sha',
+        );
+
+        final file = io.File('${outputDir.path}/merge_hash_123.md');
+        expect(file.existsSync(), isTrue);
+
+        final content = file.readAsStringSync();
+        expect(content, contains('PR Title'));
+        expect(content, contains('PR Description'));
+        expect(content, contains('author_user'));
+        expect(content, contains('reviewer_user'));
+        expect(content, contains('LGTM'));
+        expect(content, contains('commenter_user'));
+        expect(content, contains('Nice code'));
+      },
+    );
   });
 
   group('bin/json_to_markdown.dart CLI', () {
@@ -140,6 +171,31 @@ void main() {
       expect(outputDir.existsSync(), isTrue);
       expect(io.File('${outputDir.path}/hashA.md').existsSync(), isTrue);
       expect(io.File('${outputDir.path}/hashB.md').existsSync(), isTrue);
+    });
+
+    test('CLI converts PR jsonl files with --prs successfully', () async {
+      final jsonlFile = io.File('${tempDir.path}/cli_prs.jsonl');
+      jsonlFile.writeAsStringSync(
+        '{"pull_request": {"title": "A PR", "body": "A Description", "merge_commit_sha": "merge_hash_A", "user": {"login": "userA"}}}\n',
+      );
+
+      final outputDir = io.Directory('${tempDir.path}/cli_prs_output');
+
+      final result = await io.Process.run('dart', [
+        'bin/json_to_markdown.dart',
+        '--prs',
+        '-d',
+        outputDir.path,
+        jsonlFile.path,
+      ]);
+
+      expect(result.exitCode, equals(0));
+      expect(outputDir.existsSync(), isTrue);
+      expect(io.File('${outputDir.path}/merge_hash_A.md').existsSync(), isTrue);
+      expect(
+        io.File('${outputDir.path}/merge_hash_A.md').readAsStringSync(),
+        contains('A PR'),
+      );
     });
   });
 }

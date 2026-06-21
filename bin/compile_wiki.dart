@@ -20,28 +20,43 @@ void main(List<String> arguments) {
       help: 'The directory where compiled wiki markdown files will be written.',
       mandatory: true,
     )
+    ..addOption(
+      'prs-dir',
+      abbr: 'p',
+      help: 'The directory containing raw pull request markdown files.',
+      mandatory: false,
+    )
     ..addFlag('help', abbr: 'h', negatable: false, help: 'Show help message');
 
   try {
     final results = parser.parse(arguments);
 
     if (results.flag('help')) {
-      print('Usage: dart bin/compile_wiki.dart -i <input-dir> -o <output-dir>');
+      print(
+        'Usage: dart bin/compile_wiki.dart -i <input-dir> -o <output-dir> [-p <prs-dir>]',
+      );
       print(parser.usage);
       return;
     }
 
     final inputDirName = results.option('input-dir') as String;
     final outputDirName = results.option('output-dir') as String;
+    final prsDirName = results.option('prs-dir');
 
     final inputDir = io.Directory(inputDirName);
     final outputDir = io.Directory(outputDirName);
+    final prsDir = prsDirName != null ? io.Directory(prsDirName) : null;
 
     print('Compiling wiki from $inputDirName to $outputDirName...');
-    compileWiki(inputDir, outputDir);
+    if (prsDir != null) {
+      print('Using raw pull requests from $prsDirName...');
+    }
+    compileWiki(inputDir, outputDir, rawPrsDir: prsDir);
   } on FormatException catch (e) {
     print(e.message);
-    print('Usage: dart bin/compile_wiki.dart -i <input-dir> -o <output-dir>');
+    print(
+      'Usage: dart bin/compile_wiki.dart -i <input-dir> -o <output-dir> [-p <prs-dir>]',
+    );
     print(parser.usage);
     io.exitCode = 1;
   } on ArgumentError catch (e) {
