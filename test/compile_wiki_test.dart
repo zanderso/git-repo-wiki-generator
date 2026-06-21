@@ -235,6 +235,160 @@ B commit
       expect(indexB, isNot(-1));
       expect(indexA, lessThan(indexB));
     });
+
+    test('compiles wiki with pull requests and code reviews successfully', () {
+      final rawPrsDir = io.Directory('${tempDir.path}/raw_prs')..createSync();
+
+      // Create a commit for Alice
+      final commitAlice = io.File('${rawCommitsDir.path}/hash123abc.md');
+      commitAlice.writeAsStringSync('''
+### name
+```
+Alice
+```
+### email
+```
+alice@example.com
+```
+### date
+```
+2026-06-15T10:00:00Z
+```
+## message
+```
+Fix all the issues with engine rendering.
+```
+# author
+## login
+```
+alice_dev
+```
+## additions
+150
+## deletions
+25
+### filename
+```
+engine/src/render.cc
+```
+''');
+
+      // Create a commit for Bob
+      final commitBob = io.File('${rawCommitsDir.path}/hash456def.md');
+      commitBob.writeAsStringSync('''
+### name
+```
+Bob
+```
+### email
+```
+bob@example.com
+```
+### date
+```
+2026-06-16T12:00:00Z
+```
+## message
+```
+Update tooling command line parser.
+```
+# author
+## login
+```
+bob_reviewer
+```
+## additions
+10
+## deletions
+5
+### filename
+```
+tool/bin/parser.dart
+```
+''');
+
+      // Create a PR matching hash123abc
+      final prFile = io.File('${rawPrsDir.path}/hash123abc.md');
+      prFile.writeAsStringSync('''
+# pull_request
+## merge_commit_sha
+```
+hash123abc
+```
+## title
+```
+Add awesome feature
+```
+## user
+### login
+```
+alice_dev
+```
+
+# reviews
+## reviews
+### user
+#### login
+```
+bob_reviewer
+```
+### body
+```
+LGTM!
+```
+## reviews
+### user
+#### login
+```
+charlie_reviewer
+```
+### body
+```
+Please double check.
+```
+''');
+
+      // Run compiler with rawPrsDir
+      compileWiki(rawCommitsDir, wikiDir, rawPrsDir: rawPrsDir);
+
+      // Verify files
+      expect(wikiDir.existsSync(), isTrue);
+
+      final masterIndex = io.File('${wikiDir.path}/_Master_Index.md');
+      final authorAlice = io.File('${wikiDir.path}/Author_Alice.md');
+      final authorBob = io.File('${wikiDir.path}/Author_Bob.md');
+      final authorCharlie = io.File(
+        '${wikiDir.path}/Author_charlie_reviewer.md',
+      );
+
+      expect(masterIndex.existsSync(), isTrue);
+      expect(authorAlice.existsSync(), isTrue);
+      expect(authorBob.existsSync(), isTrue);
+      expect(authorCharlie.existsSync(), isTrue);
+
+      // Verify Charlie's profile has reviews but no commits
+      final charlieContent = authorCharlie.readAsStringSync();
+      expect(charlieContent, contains('# Developer Profile: charlie_reviewer'));
+      expect(charlieContent, contains('Total Commits** | 0'));
+      expect(charlieContent, contains('## Code Review Contributions'));
+      expect(charlieContent, contains('Add awesome feature'));
+      expect(charlieContent, contains('[Alice](Author_Alice.md)'));
+
+      // Verify Bob's profile has reviews and commits
+      final bobContent = authorBob.readAsStringSync();
+      expect(bobContent, contains('# Developer Profile: Bob'));
+      expect(bobContent, contains('Total Commits** | 1'));
+      expect(bobContent, contains('## Code Review Contributions'));
+      expect(bobContent, contains('Add awesome feature'));
+
+      // Verify Master Index links Charlie and Bob correctly
+      final indexContent = masterIndex.readAsStringSync();
+      expect(
+        indexContent,
+        contains('[charlie_reviewer](Author_charlie_reviewer.md)'),
+      );
+      expect(indexContent, contains('[Bob](Author_Bob.md)'));
+    });
   });
 
   group('bin/compile_wiki.dart CLI', () {

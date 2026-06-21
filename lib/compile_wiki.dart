@@ -47,6 +47,194 @@ class ParsedCommit {
   });
 }
 
+class ParsedReviewOrComment {
+  final String authorLogin;
+  final String body;
+  final bool isReview;
+
+  ParsedReviewOrComment({
+    required this.authorLogin,
+    required this.body,
+    required this.isReview,
+  });
+}
+
+class ParsedPr {
+  final String mergeCommitSha;
+  final String title;
+  final String authorLogin;
+  final List<ParsedReviewOrComment> reviewsAndComments;
+
+  ParsedPr({
+    required this.mergeCommitSha,
+    required this.title,
+    required this.authorLogin,
+    required this.reviewsAndComments,
+  });
+}
+
+class TempContrib {
+  String? login;
+  String? body;
+  final bool isReview;
+  TempContrib(this.isReview);
+}
+
+ParsedPr parsePrFile(io.File file) {
+  final lines = file.readAsLinesSync();
+  String prMergeCommitSha = '';
+  String prTitle = '';
+  String prAuthorLogin = '';
+  final List<ParsedReviewOrComment> reviewsAndComments = [];
+
+  String currentSection = '';
+  String currentField = '';
+  TempContrib? temp;
+
+  bool insideCodeBlock = false;
+  StringBuffer codeBlockContent = StringBuffer();
+
+  for (final line in lines) {
+    final trimmed = line.trim();
+
+    if (trimmed.startsWith('```')) {
+      insideCodeBlock = !insideCodeBlock;
+      if (insideCodeBlock) {
+        codeBlockContent.clear();
+      } else {
+        final content = codeBlockContent.toString().trim();
+        if (currentSection == 'pull_request') {
+          if (currentField == 'title') {
+            prTitle = content;
+          } else if (currentField == 'merge_commit_sha') {
+            prMergeCommitSha = content;
+          } else if (currentField == 'user.login') {
+            prAuthorLogin = content;
+          }
+        } else if (currentSection == 'comments' && temp != null) {
+          if (currentField == 'comment.user.login') {
+            temp.login = content;
+          } else if (currentField == 'comment.body') {
+            temp.body = content;
+          }
+        } else if (currentSection == 'reviews' && temp != null) {
+          if (currentField == 'review.user.login') {
+            temp.login = content;
+          } else if (currentField == 'review.body') {
+            temp.body = content;
+          }
+        }
+      }
+      continue;
+    }
+
+    if (insideCodeBlock) {
+      codeBlockContent.writeln(line);
+      continue;
+    }
+
+    if (trimmed.startsWith('# ')) {
+      currentSection = trimmed.substring(2).trim();
+      currentField = '';
+    } else if (trimmed.startsWith('## ')) {
+      final header = trimmed.substring(3).trim();
+      if (currentSection == 'pull_request') {
+        currentField = header;
+      } else if (currentSection == 'comments' && header == 'comments') {
+        if (temp != null && temp.login != null) {
+          reviewsAndComments.add(
+            ParsedReviewOrComment(
+              authorLogin: temp.login!,
+              body: temp.body ?? '',
+              isReview: temp.isReview,
+            ),
+          );
+        }
+        temp = TempContrib(false);
+        currentField = '';
+      } else if (currentSection == 'reviews' && header == 'reviews') {
+        if (temp != null && temp.login != null) {
+          reviewsAndComments.add(
+            ParsedReviewOrComment(
+              authorLogin: temp.login!,
+              body: temp.body ?? '',
+              isReview: temp.isReview,
+            ),
+          );
+        }
+        temp = TempContrib(true);
+        currentField = '';
+      }
+    } else if (trimmed.startsWith('### ')) {
+      final header = trimmed.substring(4).trim();
+      if (currentSection == 'pull_request' &&
+          currentField == 'user' &&
+          header == 'login') {
+        currentField = 'user.login';
+      } else if (currentSection == 'comments' && temp != null) {
+        if (header == 'user') {
+          currentField = 'comment.user';
+        } else if (header == 'body') {
+          currentField = 'comment.body';
+        }
+      } else if (currentSection == 'reviews' && temp != null) {
+        if (header == 'user') {
+          currentField = 'review.user';
+        } else if (header == 'body') {
+          currentField = 'review.body';
+        }
+      }
+    } else if (trimmed.startsWith('#### ')) {
+      final header = trimmed.substring(5).trim();
+      if (currentSection == 'comments' &&
+          currentField == 'comment.user' &&
+          header == 'login') {
+        currentField = 'comment.user.login';
+      } else if (currentSection == 'reviews' &&
+          currentField == 'review.user' &&
+          header == 'login') {
+        currentField = 'review.user.login';
+      }
+    }
+  }
+
+  // Handle last pending item
+  if (temp != null && temp.login != null) {
+    reviewsAndComments.add(
+      ParsedReviewOrComment(
+        authorLogin: temp.login!,
+        body: temp.body ?? '',
+        isReview: temp.isReview,
+      ),
+    );
+  }
+
+  return ParsedPr(
+    mergeCommitSha: prMergeCommitSha,
+    title: prTitle,
+    authorLogin: prAuthorLogin,
+    reviewsAndComments: reviewsAndComments,
+  );
+}
+
+class AuthorCodeReviewContribution {
+  final String date;
+  final String prTitle;
+  final String prAuthorName;
+  final String contributionType;
+  final String prFileCitation;
+  final String mergeCommitSha;
+
+  AuthorCodeReviewContribution({
+    required this.date,
+    required this.prTitle,
+    required this.prAuthorName,
+    required this.contributionType,
+    required this.prFileCitation,
+    required this.mergeCommitSha,
+  });
+}
+
 String sanitizeName(String name) {
   final withUnderscores = name.replaceAll(' ', '_');
   final regExp = RegExp(r'[^a-zA-Z0-9_\-\.]');
@@ -205,8 +393,10 @@ List<MapEntry<K, int>> getSortedCounts<K>(Map<K, int> counts) {
 
 String generateAuthorPage(
   String name,
-  Map<String, List<ParsedCommit>> authorCommits,
-) {
+  Map<String, List<ParsedCommit>> authorCommits, [
+  List<AuthorCodeReviewContribution> codeReviews = const [],
+  Set<String> allDeveloperNames = const {},
+]) {
   final commitsList = authorCommits[name] ?? [];
   final totalCommits = commitsList.length;
   final totalAdditions = commitsList.fold<int>(
@@ -320,6 +510,39 @@ String generateAuthorPage(
     md.writeln(
       '| $dateStr | $safeMsg | `+${c.additions}/-${c.deletions}` | $compLinks | $citation |',
     );
+  }
+
+  if (codeReviews.isNotEmpty) {
+    md.writeln('## Code Review Contributions\n');
+    md.writeln(
+      '| Date | PR Title | PR Author | Contribution Type | Citation |',
+    );
+    md.writeln('| :--- | :--- | :--- | :---: | :---: |');
+
+    final sortedReviews = List<AuthorCodeReviewContribution>.from(codeReviews)
+      ..sort((a, b) {
+        if (a.date == 'Unknown' && b.date == 'Unknown') {
+          return a.mergeCommitSha.compareTo(b.mergeCommitSha);
+        }
+        if (a.date == 'Unknown') return 1;
+        if (b.date == 'Unknown') return -1;
+        final cmp = b.date.compareTo(a.date);
+        if (cmp != 0) return cmp;
+        return a.mergeCommitSha.compareTo(b.mergeCommitSha);
+      });
+
+    for (final cr in sortedReviews) {
+      final safeTitle = cr.prTitle.replaceAll('|', '\\|');
+      final sanPrAuthor = sanitizeName(cr.prAuthorName);
+      final prAuthorLink = allDeveloperNames.contains(cr.prAuthorName)
+          ? '[${cr.prAuthorName}](Author_$sanPrAuthor.md)'
+          : cr.prAuthorName;
+
+      md.writeln(
+        '| ${cr.date} | $safeTitle | $prAuthorLink | ${cr.contributionType} | ${cr.prFileCitation} |',
+      );
+    }
+    md.writeln();
   }
 
   return md.toString();
@@ -567,8 +790,10 @@ String generateMasterIndex(
   List<ParsedCommit> commits,
   Map<String, List<ParsedCommit>> authorCommits,
   Map<String, List<ParsedCommit>> componentCommits,
-  Map<String, List<ParsedCommit>> timelineCommits,
-) {
+  Map<String, List<ParsedCommit>> timelineCommits, {
+  Set<String> allDeveloperNames = const {},
+  Map<String, List<AuthorCodeReviewContribution>> developerReviews = const {},
+}) {
   final totalCommits = commits.length;
   final totalAuthors = authorCommits.length;
   final totalComponents = componentCommits.length;
@@ -671,17 +896,24 @@ String generateMasterIndex(
   );
   md.writeln('| :--- | :---: | :---: | :---: | :---: |');
 
-  final sortedAuthors = authorCommits.keys.toList()
-    ..sort((a, b) {
-      final cmp = (authorCommits[b]!.length).compareTo(
-        authorCommits[a]!.length,
-      );
-      if (cmp != 0) return cmp;
-      return a.compareTo(b);
-    });
+  final sortedAuthors =
+      (allDeveloperNames.isNotEmpty
+            ? allDeveloperNames.toList()
+            : authorCommits.keys.toList())
+        ..sort((a, b) {
+          final commitsA = authorCommits[a]?.length ?? 0;
+          final commitsB = authorCommits[b]?.length ?? 0;
+          final cmp = commitsB.compareTo(commitsA);
+          if (cmp != 0) return cmp;
+          final reviewsA = developerReviews[a]?.length ?? 0;
+          final reviewsB = developerReviews[b]?.length ?? 0;
+          final cmpReviews = reviewsB.compareTo(reviewsA);
+          if (cmpReviews != 0) return cmpReviews;
+          return a.compareTo(b);
+        });
 
   for (final name in sortedAuthors) {
-    final authorList = authorCommits[name]!;
+    final authorList = authorCommits[name] ?? [];
     final aCommits = authorList.length;
     final aAdd = authorList.fold<int>(0, (sum, c) => sum + c.additions);
     final aDel = authorList.fold<int>(0, (sum, c) => sum + c.deletions);
@@ -695,7 +927,11 @@ String generateMasterIndex(
   return md.toString();
 }
 
-void compileWiki(io.Directory rawCommitsDir, io.Directory wikiDir) {
+void compileWiki(
+  io.Directory rawCommitsDir,
+  io.Directory wikiDir, {
+  io.Directory? rawPrsDir,
+}) {
   print('Ensuring output directory exists: ${wikiDir.path}');
   wikiDir.createSync(recursive: true);
 
@@ -774,11 +1010,97 @@ void compileWiki(io.Directory rawCommitsDir, io.Directory wikiDir) {
     }
   }
 
+  // Build lookup mapping to match PR merge commit to git commits
+  final Map<String, ParsedCommit> commitLookup = {
+    for (final c in commits) c.hash: c,
+  };
+
+  // Group commits by login to find the primary display name for each login
+  final Map<String, String> loginToDisplayName = {};
+  for (final c in commits) {
+    if (c.login.isNotEmpty && c.name.isNotEmpty) {
+      loginToDisplayName[c.login] = c.name;
+    }
+  }
+
+  // Parse raw PRs and build code review contributions
+  final Map<String, List<AuthorCodeReviewContribution>> developerReviews = {};
+  final List<ParsedPr> prs = [];
+  if (rawPrsDir != null && rawPrsDir.existsSync()) {
+    print('Reading and parsing raw PRs from ${rawPrsDir.path}...');
+    final rawPrFiles =
+        rawPrsDir
+            .listSync()
+            .whereType<io.File>()
+            .where((f) => f.path.endsWith('.md'))
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
+
+    print('Found ${rawPrFiles.length} raw PR files.');
+    for (final file in rawPrFiles) {
+      try {
+        prs.add(parsePrFile(file));
+      } catch (e) {
+        print('Error parsing PR file ${file.path}: $e');
+      }
+    }
+
+    for (final pr in prs) {
+      final prAuthorName = loginToDisplayName[pr.authorLogin] ?? pr.authorLogin;
+      final matchingCommit = commitLookup[pr.mergeCommitSha];
+      final dateStr = matchingCommit != null
+          ? (matchingCommit.date.length >= 10
+                ? matchingCommit.date.substring(0, 10)
+                : matchingCommit.date)
+          : 'Unknown';
+
+      final Map<String, Set<String>> prContribTypesForThisPr = {};
+      for (final contrib in pr.reviewsAndComments) {
+        final contribName =
+            loginToDisplayName[contrib.authorLogin] ?? contrib.authorLogin;
+        final type = contrib.isReview ? 'Review' : 'Comment';
+        prContribTypesForThisPr.putIfAbsent(contribName, () => {}).add(type);
+      }
+
+      prContribTypesForThisPr.forEach((contribName, types) {
+        String typeStr = 'Comment';
+        if (types.contains('Review') && types.contains('Comment')) {
+          typeStr = 'Review & Comment';
+        } else if (types.contains('Review')) {
+          typeStr = 'Review';
+        }
+
+        final citation = '[[../raw_prs/${pr.mergeCommitSha}.md]]';
+        final contribObj = AuthorCodeReviewContribution(
+          date: dateStr,
+          prTitle: pr.title,
+          prAuthorName: prAuthorName,
+          contributionType: typeStr,
+          prFileCitation: citation,
+          mergeCommitSha: pr.mergeCommitSha,
+        );
+
+        developerReviews.putIfAbsent(contribName, () => []).add(contribObj);
+      });
+    }
+  }
+
+  final allDeveloperNames = <String>{
+    ...authorCommits.keys,
+    ...developerReviews.keys,
+  };
+
   // Write Author pages
-  print('Generating ${authorCommits.length} author profiles...');
-  for (final authorName in authorCommits.keys) {
+  print('Generating ${allDeveloperNames.length} author profiles...');
+  for (final authorName in allDeveloperNames) {
     final sanName = sanitizeName(authorName);
-    final authorMd = generateAuthorPage(authorName, authorCommits);
+    final reviews = developerReviews[authorName] ?? [];
+    final authorMd = generateAuthorPage(
+      authorName,
+      authorCommits,
+      reviews,
+      allDeveloperNames,
+    );
     final filepath = '${wikiDir.path}/Author_$sanName.md';
     io.File(filepath).writeAsStringSync(authorMd);
   }
@@ -806,6 +1128,8 @@ void compileWiki(io.Directory rawCommitsDir, io.Directory wikiDir) {
     authorCommits,
     componentCommits,
     timelineCommits,
+    allDeveloperNames: allDeveloperNames,
+    developerReviews: developerReviews,
   );
   final masterIndexFilepath = '${wikiDir.path}/_Master_Index.md';
   io.File(masterIndexFilepath).writeAsStringSync(masterIndexMd);

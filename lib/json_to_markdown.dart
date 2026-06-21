@@ -115,22 +115,51 @@ void jsonListToMarkdown(
   }
 }
 
+const List<String> defaultCommitFilters = [
+  '.commit.author',
+  '.commit.commiter.date',
+  '.commit.message',
+  '.author.login',
+  '.stats',
+  '.files.files.filename',
+  '.files.files.patch',
+];
+
+const List<String> defaultPrFilters = [
+  '.pull_request.user.login',
+  '.pull_request.title',
+  '.pull_request.body',
+  '.pull_request.merge_commit_sha',
+  '.reviews.reviews.user.login',
+  '.reviews.reviews.body',
+  '.comments.comments.user.login',
+  '.comments.comments.body',
+];
+
+dynamic getNestedValue(Map<String, dynamic> json, String pathSpecifier) {
+  final parts = pathSpecifier.split('.').where((p) => p.isNotEmpty).toList();
+  dynamic current = json;
+  for (final part in parts) {
+    if (current is Map<String, dynamic>) {
+      current = current[part];
+    } else {
+      return null;
+    }
+  }
+  return current;
+}
+
 Future<void> convertJsonlToMarkdown(
   io.File jsonlFile,
   io.Directory outputDir, {
-  List<String> includeFilter = const [
-    '.commit.author',
-    '.commit.commiter.date',
-    '.commit.message',
-    '.author.login',
-    '.stats',
-    '.files.files.filename',
-    '.files.files.patch',
-  ],
+  List<String>? includeFilter,
+  String? filenameField,
 }) async {
   if (!outputDir.existsSync()) {
     outputDir.createSync(recursive: true);
   }
+
+  final List<String> filter = includeFilter ?? defaultCommitFilters;
 
   final Stream<String> lines = jsonlFile
       .openRead()
@@ -143,15 +172,23 @@ Future<void> convertJsonlToMarkdown(
       continue;
     }
     final Map<String, dynamic> jsonObject = convert.json.decode(line);
-    final String mdPrefix;
-    if (jsonObject.containsKey('sha')) {
-      mdPrefix = jsonObject['sha'] as String;
-    } else {
-      mdPrefix = i.toString();
+    String? mdPrefix;
+    if (filenameField != null) {
+      final val = getNestedValue(jsonObject, filenameField);
+      if (val != null) {
+        mdPrefix = val.toString();
+      }
+    }
+    if (mdPrefix == null || mdPrefix.isEmpty) {
+      if (jsonObject.containsKey('sha')) {
+        mdPrefix = jsonObject['sha'] as String;
+      } else {
+        mdPrefix = i.toString();
+      }
     }
     final StringBuffer mdbuf = StringBuffer();
     final io.File mdFile = io.File('${outputDir.path}/$mdPrefix.md');
-    jsonObjectToMarkdown(jsonObject, mdbuf, includeFilter: includeFilter);
+    jsonObjectToMarkdown(jsonObject, mdbuf, includeFilter: filter);
     mdFile.writeAsStringSync(mdbuf.toString());
     i++;
   }
